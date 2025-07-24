@@ -295,7 +295,7 @@ for (group2 in functional_groups2) {
       model <- brm(
         SpeciesRichness ~ Treatment * Movement.pattern + (1 | Trap),
         data = season_data2,
-        family = negbinomial(link = "sqrt"),
+        family = negbinomial(link = "log"),
         chains = 4,
         cores = 4,
         iter = 4000,
@@ -319,8 +319,8 @@ for (group2 in functional_groups2) {
 }
 
 summary(readRDS("brm_species_richness_Predator_Spring.rds"))
-sp_omni_autumn <- readRDS("brm_species_richness_Predator_Spring.rds")
-emm <- emmeans(sp_omni_autumn, ~ Movement.pattern * Treatment, re_formula = NA, type = "link",posterior = TRUE)
+sp_pred_autumn <- readRDS("brm_species_richness_Predator_Autumn.rds")
+emm <- emmeans(sp_pred_autumn, ~ Movement.pattern * Treatment, re_formula = NA, type = "link",posterior = TRUE)
 contrasts <- contrast(emm, method = "revpairwise", by = "Treatment")
 contrasts
 
