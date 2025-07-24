@@ -922,7 +922,8 @@ prior = c(
   library(bayestestR)
   library(emmeans)
   library(dplyr)
-  
+  library(coda)
+ 
   models_brm <- list()
   functional_groups <- unique(dataset6$Functional.group)
   
@@ -954,13 +955,49 @@ prior = c(
       cat("Model saved for Functional Group:", group, ", and Season:", season, "\n")
     }
   }
- 
-  predator_spring <- readRDS("model_brm_Predator_Spring.rds")
-  emm <- emmeans(model_pred_spring, ~ Movement.pattern * Treatment, re_formula = NA, type = "link")
+
+  summary(readRDS("model_brm_Herbivore_Spring.rds"))
+  herbi_spring <- readRDS("model_brm_Herbivore_Spring.rds")
+  emm <- emmeans(detri_autumn, ~ Movement.pattern * Treatment, re_formula = NA, type = "link",posterior = TRUE)
   contrasts <- contrast(emm, method = "revpairwise", by = "Treatment")
-  contrast_df <- describe_posterior(contrasts)
-  significant <- contrast_df %>% filter(!between(0, CI_low, CI_high))
-  bayestestR::describe_posterior(contrast)
+  contrasts
+  
+  # Step 1: Extract posterior samples from emmGrid
+  emm <- emmeans(detri_spring, ~ Movement.pattern * Treatment,
+                 re_formula = NA, type = "link", posterior = TRUE)
+  
+  # Step 2: Convert to MCMC list before contrast
+  emm_mcmc <- as.mcmc(emm)  # ensures posterior samples are preserved
+  
+  # Step 3: Apply contrast WITHIN the posterior draw object
+  contrasts <- contrast(emm, method = "revpairwise", by = "Treatment")
+  
+  # Step 4: Manually extract posterior draws from contrast object
+  # `contrast()` still returns an `emmGrid`, so we force extract draws
+  contrast_draws <- as.mcmc(contrasts)
+  
+  # Step 5: If you want per-treatment pd, split manually
+  treatment_levels <- unique(contrasts@grid$Treatment)
+  pd_summaries <- lapply(treatment_levels, function(treatment) {
+    sub_contrast <- contrast(emm, method = "revpairwise", by = "Treatment") %>%
+      subset(Treatment == treatment)
+    
+    sub_draws <- do.call(rbind, as.mcmc(sub_contrast))
+    param_name <- colnames(sub_draws)[1]  # typically one column per contrast
+    
+    if (nrow(sub_draws) > 0 && !is.null(param_name)) {
+      summary <- describe_posterior(sub_draws[, param_name], ci = 0.95, rope_range = NULL)
+      summary$Parameter <- param_name
+      summary$Treatment <- treatment
+      return(summary)
+    } else {
+      NULL
+    }
+  })
+  
+  # Step 6: Combine all
+  pd_df <- bind_rows(pd_summaries)
+  print(pd_df)
   ############################################################################################
   #indicspecies - multipatt: Multi-level pattern analysis
   # Aggregate data
