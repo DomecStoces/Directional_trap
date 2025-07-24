@@ -1,6 +1,11 @@
+dataset6$Treatment <- gsub("\\.", " ", dataset6$Treatment)
+dataset6$Treatment <- factor(dataset6$Treatment, 
+                             levels = c("Forest interior", "Ecotone", "Retention clearcut"))
 levels(dataset6$Treatment)
-library(brms)
 
+library(brms)
+library(emmeans)
+library(dplyr)
 #control = list(adapt_delta = 0.95, max_treedepth = 15)
 #save_pars = save_pars(all = TRUE)
 model7 <- brm(
@@ -59,7 +64,6 @@ dataset6$Treatment <- factor(dataset6$Treatment,
                              levels = c("Forest interior", "Ecotone", "Retention clearcut"))
 levels(dataset6$Treatment)
 
-library(emmeans)
 emm <- emmeans(model7, ~ Movement.pattern * Treatment,
                re_formula = NA,      
                type = "response")
