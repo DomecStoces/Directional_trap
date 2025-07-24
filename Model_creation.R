@@ -710,13 +710,13 @@ prior = c(
   library(emmeans)
   
   # Generate emmeans for the interaction term (Movement.pattern * Season)
-  interaction_emm <- emmeans(models[["Detritivore"]][["Ecotone"]], 
-                             ~ Movement.pattern * Season)
+  interaction_emm <- emmeans(model7, 
+                             ~ Movement.pattern * Treatment)
   
   # Perform pairwise comparisons only between `Along` and `Across` within each season
   pairwise_interaction <- contrast(interaction_emm, 
                                    method = "pairwise", 
-                                   by = "Season")
+                                   by = "Treatment")
   
   # Summarize the results
   summary(pairwise_interaction)
@@ -862,6 +862,105 @@ prior = c(
   print(d)
   dev.off()
 
+  # Generate emmeans for the interaction term (Movement.pattern * Treatment)
+  interaction_emm <- emmeans(model7, 
+                             ~ Movement.pattern * Treatment)
+  
+  # Perform pairwise comparisons only between `Along` and `Across` within each treatment
+  pairwise_interaction <- contrast(interaction_emm, 
+                                   method = "pairwise", 
+                                   by = "Treatment")
+  
+  # Summarize the results
+  summary(pairwise_interaction)
+  
+  #Model species richness using brms
+  model_full10 <- brm(formula=SpeciesRichness ~ Treatment * Movement.pattern +Season+(1 | Trap), 
+                         data = species_richness_data , 
+                      family = negbinomial(link = "log"),
+                      chains = 4,
+                      cores = 4,
+                      iter = 6000, control = list(adapt_delta = 0.99),
+                      seed = 123)
+  interaction_emm <- emmeans(model_full10, 
+                             ~ Movement.pattern * Treatment)
+  
+  # Perform pairwise comparisons only between `Along` and `Across` within each treatment
+  pairwise_interaction <- contrast(interaction_emm, 
+                                   method = "pairwise", 
+                                   by = "Treatment")
+  
+  # Summarize the results
+  summary(pairwise_interaction)
+  
+  emm <- emmeans(model_full10, ~ Treatment * Movement.pattern, 
+                 re_formula = NA, type = "response")
+  emm_df <- as.data.frame(emm)
+  ggplot(emm_df, aes(x = Treatment, y = prob, 
+                     color = Movement.pattern, 
+                     group = Movement.pattern)) +
+    geom_point(position = position_dodge(width = 0.5), size = 3) +
+    geom_errorbar(aes(ymin = lower.HPD, ymax = upper.HPD),
+                  position = position_dodge(width = 0.5),
+                  width = 0.2, linewidth = 0.8) +
+    geom_line(aes(linetype = Movement.pattern),
+              position = position_dodge(width = 0.5),
+              linewidth = 0.8) +
+    labs(
+      x = "Treatment",
+      y = "Predicted Species Richness"
+    ) +
+    theme_minimal(base_family = "Arial") +
+    theme(
+      axis.text.x = element_text(angle = -45, hjust = 0, vjust = 1, size = 12),
+      axis.title = element_text(size = 14),
+      legend.title = element_blank(),
+      legend.text = element_text(size = 12)
+    )
+  
+  # Perform abundance in each season for each functional group
+  library(bayestestR)
+  library(emmeans)
+  library(dplyr)
+  
+  models_brm <- list()
+  functional_groups <- unique(dataset6$Functional.group)
+  
+  for (group in functional_groups) {
+    group_data <- dataset6 %>% filter(Functional.group == group)
+    models_brm[[group]] <- list()
+    
+    for (season in unique(group_data$Season)) {
+      season_data <- group_data %>% filter(Season == season)
+      
+      model <- brm(
+        Number ~ Treatment * Movement.pattern + (1 | Trap),
+        data = season_data,
+        family = negbinomial(link = "log"),
+        chains = 4,
+        cores = 4,
+        iter = 4000,
+        control = list(adapt_delta = 0.95),
+        seed = 123
+      )
+      
+      # Save the model to disk
+      filename <- paste0("model_brm_", group, "_", season, ".rds")
+      saveRDS(model, file = filename)
+      
+      # Optional: also store in list if working interactively
+      models_brm[[group]][[season]] <- model
+      
+      cat("Model saved for Functional Group:", group, ", and Season:", season, "\n")
+    }
+  }
+ 
+  model_pred_spring <- readRDS("model_brm_Predator_Spring.rds")
+  emm <- emmeans(model_pred_spring, ~ Movement.pattern * Treatment, re_formula = NA, type = "link")
+  contrasts <- contrast(emm, method = "revpairwise", by = "Treatment")
+  contrast_df <- describe_posterior(contrasts)
+  significant <- contrast_df %>% filter(!between(0, CI_low, CI_high))
+  bayestestR::describe_posterior(contrast)
   ############################################################################################
   #indicspecies - multipatt: Multi-level pattern analysis
   # Aggregate data
