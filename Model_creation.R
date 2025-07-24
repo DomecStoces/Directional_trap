@@ -468,10 +468,6 @@ prior = c(
   # Print plot
   print(d)
   
-  
-  
-  
-  
   #Likelihood Ratio Test (LRT) for Predictor Significance: For testing the overall significance of predictors or interactions
   # Full model
   model_full <- glmmTMB(Number ~ Season* Movement.pattern+ (1 | Trap), 
@@ -713,7 +709,6 @@ prior = c(
   
   library(emmeans)
   
-  
   # Generate emmeans for the interaction term (Movement.pattern * Season)
   interaction_emm <- emmeans(models[["Detritivore"]][["Ecotone"]], 
                              ~ Movement.pattern * Season)
@@ -744,11 +739,10 @@ prior = c(
   
   ############################################################################################
   #Zřejmě finalizovaný model pro celková data abundance a species richness
-  model8 <- glmmTMB(Number ~ Treatment* Movement.pattern+(1 | Trap)+(1|Month), 
-                    data = dataset6,
-                    family = poisson(link = "log"))
-  
-  dataset6$Month <- as.numeric(dataset6$Month)
+  dataset6$Treatment <- gsub("\\.", " ", dataset6$Treatment)
+  dataset6$Treatment <- factor(dataset6$Treatment, 
+                               levels = c("Forest interior", "Ecotone", "Retention clearcut"))
+  levels(dataset6$Treatment)
   library(brms)
   
   #control = list(adapt_delta = 0.95, max_treedepth = 15)
@@ -762,21 +756,30 @@ prior = c(
     iter = 6000, control = list(adapt_delta = 0.99),
     seed = 123)
   
+  model7 <- brm(
+    formula = Number ~ Treatment * Movement.pattern + Season + Functional.group+(1 | Trap),
+    data = dataset6,
+    family = negbinomial(link = "log"),
+    chains = 4,
+    cores = 4,
+    iter = 6000, control = list(adapt_delta = 0.99),
+    seed = 123)
+  
   library(bayesplot)
   library(ggplot2)
   #Diagnostics 1: Posterior predictive checks plot
   # How well model captures the distribution of the response variable?
-  dq<-pp_check(model6, type = "rootogram", ndraws = 200)
-  
+  dq<-pp_check(model7, type = "rootogram", ndraws = 200)
+  dq
   # Diagnostics 2: Residuals vs. fitted and histogram of PPR
-  y_obs <- model6$data$Number 
-  y_pred <- posterior_predict(model6)
+  y_obs <- model7$data$Number 
+  y_pred <- posterior_predict(model7)
   # Compute posterior predictive residuals
   residuals <- sweep(y_pred, 2, y_obs)  
   mean_resid <- colMeans(residuals)     
   sd_resid <- apply(residuals, 2, sd)   
   # Prepare data for plotting
-  fitted_vals <- fitted(model6)[, "Estimate"] 
+  fitted_vals <- fitted(model7)[, "Estimate"] 
   df_plot <- data.frame(Fitted = fitted_vals, Residual = mean_resid)
   # Plot Bayesian posterior predictive means: it describes the average deviation between observed and predicted values for each observation plotted against its predicted value.
   dz <- ggplot(df_plot, aes(x = Fitted, y = Residual)) +
@@ -785,8 +788,9 @@ prior = c(
     labs(
       x = "Fitted values",
       y = "Mean residuals (posterior predictive)",
-      title = "Mean residuals vs. fitted values"
-    )
+      title = "Mean residuals compared to fitted values") +
+    theme(
+      plot.title = element_text(hjust = 0.5))
   
   print(dz)
   
@@ -794,65 +798,70 @@ prior = c(
   de<-hist(mean_resid,
            breaks = 50,
            main = "Histogram of posterior predictive residuals",
-           xlab = "Mean residual")
+           xlab = "Mean residuals")
   plot(de)
   # R²
   bayes_R2(model6)
   
-  tiff('Rootogram.tiff',units="in",width=6,height=5,bg="white",res=300)
-  dq
+  tiff('Histogram.tiff',units="in",width=6,height=5,bg="white",res=300)
+  dz
   dev.off()
   
-  library(ggplot2)
-  plot(conditional_effects(model5, effects = "Treatment:Movement.pattern"),
-       points = FALSE, theme = theme_minimal())
+  dataset6$Treatment <- gsub("\\.", " ", dataset6$Treatment)
+  dataset6$Treatment <- factor(dataset6$Treatment, 
+                               levels = c("Forest interior", "Ecotone", "Retention clearcut"))
+  levels(dataset6$Treatment)
   
-  model4 <- glmmTMB(SpeciesRichness ~ Season*Treatment*Movement.pattern+Collembola + (1 | Trap)+(1|Month), 
-                    data = species_richness_data, 
-                    family = nbinom2(link = "sqrt"), ziformula = ~1)
+  library(emmeans)
+  emm <- emmeans(model7, ~ Movement.pattern * Treatment,
+                 re_formula = NA,      
+                 type = "response")
   
-  model6 <- glmmTMB(Number ~ Treatment * Movement.pattern + (1 | Trap), 
-                    data = dataset3, 
-                    family = nbinom2(link = "log"),ziformula = ~1)
+  emm_df <- as.data.frame(emm)
+  d <- ggplot(emm_df, aes(x = Treatment, y = prob,
+                          color = Movement.pattern,
+                          group = Movement.pattern)) +
+    geom_point(position = position_dodge(width = 0.5), size = 3) +
+    geom_errorbar(aes(ymin = lower.HPD, ymax = upper.HPD),  
+                  width = 0.2,
+                  linewidth = 0.8,
+                  position = position_dodge(width = 0.5)) +
+    geom_line(aes(linetype = Movement.pattern),
+              position = position_dodge(width = 0.5),
+              linewidth = 0.8) +
+    labs(
+      x = "Treatment",
+      y = "Total predicted N° of individuals"
+    ) +
+    scale_y_continuous(
+      limits = c(0, 6),
+      labels = function(x) ifelse(x == 0, "0", x)
+    ) +
+    theme_minimal(base_family = "Arial") +
+    theme(
+      strip.text = element_text(size = 15, family = "Arial"),
+      strip.background = element_rect(fill = "grey90"),
+      axis.text.x = element_text(size = 12, family = "Arial", angle = -45, hjust = 0, vjust = 1),
+      axis.text.y = element_text(size = 12, family = "Arial"),
+      axis.title.x = element_text(size = 15, family = "Arial"),
+      axis.title.y = element_text(size = 15, family = "Arial", margin = margin(r = 10)),
+      legend.text = element_text(size = 12, family = "Arial"),
+      legend.title = element_blank(),
+      legend.position = "right",
+      legend.direction = "vertical",
+      panel.grid.major = element_blank(),
+      panel.grid.minor = element_blank(),
+      axis.ticks = element_line(color = "black"),
+      axis.line = element_line(color = "black")
+    ) +
+    scale_color_manual(values = c("Across" = "grey60", "Along" = "black")) +
+    scale_linetype_manual(values = c("Across" = "dashed", "Along" = "solid"))
   
-  dataset3$Treatment <- as.factor(dataset3$Treatment)
-  Anova(model_zinb, type = "III")
-  
-  library(DHARMa)
-  # Step 1: get observed values directly from model's data (ensures matching rows)
-  y_obs <- model.frame(model_nb_shape)$Number
-  
-  # Step 2: simulate posterior predictions
-  y_pred <- posterior_predict(model_nb_shape, draws = 1000)
-  
-  sim_dharma <- createDHARMa(
-    simulatedResponse = t(y_pred),                        
-    observedResponse = y_obs,                             
-    fittedPredictedResponse = apply(y_pred, 2, median),   
-    integerResponse = TRUE
-  )
-  
-  # Step 4: plot
-  plot(sim_dharma)
-  # Simulate residuals
-  sim_res <- simulateResiduals(fittedModel = model_zinb)
-  
-  testResiduals(sim_res)
-  
-  # Run outlier test with bootstrap method
-  testOutliers(sim_dharma, type = "bootstrap")
-  
-  # Test for overall dispersion (under/overdispersion)
-  testDispersion(sim_res)
-  
-  # Test for zero-inflation (observed vs. expected zeros)
-  testZeroInflation(sim_res)
-  
-  # Test for uniformity of residuals
-  testUniformity(sim_res)
-  
-  # Test for residual patterns across predictors
-  plotResiduals(sim_res, dataset6$Treatment)
+  print(d)
+  tiff("Total_abundance.tiff", units = "in", width = 6, height = 5, res = 300, bg = "white")
+  print(d)
+  dev.off()
+
   ############################################################################################
   #indicspecies - multipatt: Multi-level pattern analysis
   # Aggregate data
