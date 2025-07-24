@@ -956,14 +956,14 @@ prior = c(
     }
   }
 
-  summary(readRDS("model_brm_Herbivore_Spring.rds"))
-  herbi_spring <- readRDS("model_brm_Herbivore_Spring.rds")
-  emm <- emmeans(detri_autumn, ~ Movement.pattern * Treatment, re_formula = NA, type = "link",posterior = TRUE)
+  summary(readRDS("model_brm_Omnivore_Autumn.rds"))
+  omni_autumn <- readRDS("model_brm_Omnivore_Autumn.rds")
+  emm <- emmeans(omni_autumn, ~ Movement.pattern * Treatment, re_formula = NA, type = "link",posterior = TRUE)
   contrasts <- contrast(emm, method = "revpairwise", by = "Treatment")
   contrasts
   
   # Step 1: Extract posterior samples from emmGrid
-  emm <- emmeans(detri_spring, ~ Movement.pattern * Treatment,
+  emm <- emmeans(omni_summer, ~ Movement.pattern * Treatment,
                  re_formula = NA, type = "link", posterior = TRUE)
   
   # Step 2: Convert to MCMC list before contrast
