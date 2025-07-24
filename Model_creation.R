@@ -955,7 +955,7 @@ prior = c(
     }
   }
  
-  model_pred_spring <- readRDS("model_brm_Predator_Spring.rds")
+  predator_spring <- readRDS("model_brm_Predator_Spring.rds")
   emm <- emmeans(model_pred_spring, ~ Movement.pattern * Treatment, re_formula = NA, type = "link")
   contrasts <- contrast(emm, method = "revpairwise", by = "Treatment")
   contrast_df <- describe_posterior(contrasts)
