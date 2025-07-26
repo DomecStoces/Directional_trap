@@ -957,8 +957,8 @@ prior = c(
   }
 
   summary(readRDS("model_brm_Omnivore_Autumn.rds"))
-  omni_autumn <- readRDS("model_brm_Omnivore_Autumn.rds")
-  emm <- emmeans(omni_autumn, ~ Movement.pattern * Treatment, re_formula = NA, type = "link",posterior = TRUE)
+  omni_summer <- readRDS("model_brm_Omnivore_Summer.rds")
+  emm <- emmeans(omni_summer, ~ Movement.pattern * Treatment, re_formula = NA, type = "link",posterior = TRUE)
   contrasts <- contrast(emm, method = "revpairwise", by = "Treatment")
   contrasts
   
@@ -986,7 +986,7 @@ prior = c(
     param_name <- colnames(sub_draws)[1]  # typically one column per contrast
     
     if (nrow(sub_draws) > 0 && !is.null(param_name)) {
-      summary <- describe_posterior(sub_draws[, param_name], ci = 0.95, rope_range = NULL)
+      summary <- describe_posterior(sub_draws[, param_name], ci = 0.95, rope_range = NULL,ci_method = "hdi")
       summary$Parameter <- param_name
       summary$Treatment <- treatment
       return(summary)
