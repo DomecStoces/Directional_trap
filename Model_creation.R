@@ -131,7 +131,7 @@ summary(contrast_results)
 
 # Prepare data for modeling SpeciesRichness ~ Treatment * Movement.pattern
 species_richness_data <- dataset6 %>%
-  group_by(Trap, Treatment, Month, Movement.pattern, Functional.group) %>%
+  group_by(Trap, Treatment, Season, Movement.pattern, Functional.group) %>%
   summarize(
     SpeciesRichness = n_distinct(Species),  # Unique species count
     Abundance = sum(Number, na.rm = TRUE),  # Sum of individuals
